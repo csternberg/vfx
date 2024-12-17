@@ -17,7 +17,7 @@ def print_help():
     -Y x (height): Set the desired height in pixels of the extracted images. If -X is not also used, the height is set automatically to maintain aspect ratio.
     -P (prompt): For each found video file answer y (yes), n (no) or (a) abort, to process the file or not, or to abort the process all together.
     -D (directory): All extracted files are saved together with the video file. Default is to create a new folder for the extracted frames.
-    -H: Show this help text.
+    -H (help): Show this help text.
     """
     print(help_text)
 
