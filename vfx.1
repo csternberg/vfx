@@ -1,0 +1,217 @@
+.TH VFX 1 "" "vfx 2.3.0" "User Commands"
+.SH NAME
+vfx \- extract still images from video files using ffmpeg
+.SH SYNOPSIS
+.B vfx
+[\fB\-R\fR]
+[\fB\-S\fR | \fB\-I\fR | \fB\-\-verbose\fR]
+[\fB\-N\fR \fIx\fR | \fB\-T\fR \fIx\fR]
+[\fB\-X\fR \fIx\fR]
+[\fB\-Y\fR \fIx\fR]
+[\fB\-F\fR \fIfmt\fR]
+[\fB\-Q\fR \fIx\fR]
+[\fB\-M\fR]
+[\fB\-P\fR]
+[\fB\-D\fR]
+[\fB\-O\fR [\fIxx\fR]]
+[\fB\-L\fR]
+[\fB\-V\fR]
+[\fB\-H\fR]
+[\fIsource\fR]
+.SH DESCRIPTION
+.B vfx
+extracts still images from video files.
+It can save a number of evenly spaced frames, one frame every
+.I x
+seconds, or every frame.
+.PP
+.I source
+is a video file or a directory; the default is the current directory.
+In a directory, files with a common video extension
+(mp4, mov, mkv, avi, webm, mpg, wmv, flv, ts, 3gp and others, in any case)
+are processed.
+A file named explicitly is processed whatever its extension.
+.PP
+Images are written to a new folder
+.IR name _frames
+next to each video, or, with
+.BR \-D ,
+next to the video itself.
+Existing files are never overwritten: a later run creates
+.IR name _frames_1 ,
+and so on.
+.PP
+By default one progress line is shown per video, for example:
+.PP
+.RS
+clip.mp4: generated 5 of 16 frames (2 of 7 videos)
+.RE
+.PP
+.B ffmpeg
+and
+.B ffprobe
+must be installed and on the
+.BR PATH .
+.SH OPTIONS
+Single-letter switches are case-insensitive:
+.B \-n
+is the same as
+.BR \-N .
+Long options are lowercase only.
+.TP
+.BR \-R ", " \-\-recursive
+Process the directory and all its subdirectories.
+.TP
+.BR \-S ", " \-\-silent
+Silent mode: no text output, except
+.B \-P
+prompts.
+.TP
+.BR \-I ", " \-\-info
+Info mode (the default): one progress line per video, with no output from
+ffmpeg.
+Cannot be combined with
+.BR \-S .
+.TP
+.B \-\-verbose
+Show ffmpeg's own output.
+Cannot be combined with
+.B \-S
+or
+.BR \-I .
+.TP
+.BR \-N ", " \-\-count " \fIx\fR"
+Extract
+.I x
+evenly spaced frames per video (default 16).
+0 extracts all frames.
+Each frame is taken from the middle of its slice of the video.
+Cannot be combined with
+.BR \-T .
+.TP
+.BR \-T ", " \-\-interval " \fIx\fR"
+Extract one frame every
+.I x
+seconds; decimals are allowed (for example 0.5).
+0 extracts all frames.
+.TP
+.BR \-X ", " \-\-width " \fIx\fR"
+Image width in pixels.
+Without
+.B \-Y
+the height keeps the aspect ratio.
+.TP
+.BR \-Y ", " \-\-height " \fIx\fR"
+Image height in pixels.
+Without
+.B \-X
+the width keeps the aspect ratio.
+.TP
+.BR \-F ", " \-\-format " \fIfmt\fR"
+Image format:
+.BR jpg " (default), " png " or " webp .
+.TP
+.BR \-Q ", " \-\-quality " \fIx\fR"
+Image quality from 1 to 100, higher is better.
+Applies to jpg and webp only.
+Default: best quality for jpg, 90 for webp.
+.TP
+.BR \-M ", " \-\-timestamps
+Name images by their timestamp in the video
+(\fIname\fR_HH\-MM\-SS.mmm.jpg) instead of a counter (\fIname\fR_001.jpg).
+.TP
+.BR \-P ", " \-\-prompt
+Ask before each video:
+.B y
+(yes),
+.B n
+(no) or
+.B a
+(abort the whole run).
+.TP
+.BR \-D ", " \-\-same\-dir
+Save images next to the video file instead of in a new
+.IR name _frames
+folder.
+.TP
+.BR \-O ", " \-\-output " [\fIxx\fR]"
+Write all images below the folder
+.I xx
+(default
+.BR frames )
+and keep the folder tree of the source, as
+.IR xx /\fIsubfolder\fR/\fIname\fR_frames.
+If
+.I xx
+already exists,
+.IR xx _001,
+.IR xx _002
+and so on is used instead, so earlier output is never touched.
+With
+.BR \-D ,
+the images of each source folder share one folder,
+.IR xx /IsubfolderR,
+instead of one folder per video.
+If the last component of
+.I xx
+contains a dot (for example
+.BR movie.mp4 ),
+vfx asks for confirmation (y/n) before proceeding, since that is usually a
+mistake.
+Because the value is optional, put the source before
+.BR \-O ,
+or write
+.BI \-\-output= xx\fR;
+otherwise the source is taken as
+.IR xx .
+.TP
+.BR \-L ", " \-\-dry\-run
+List the videos that would be processed and where the images would go,
+without extracting anything.
+Needs neither ffmpeg nor ffprobe.
+.TP
+.BR \-V ", " \-\-version
+Show the version number and exit.
+.TP
+.BR \-H ", " \-h ", " \-? ", " \-\-help
+Show help and exit.
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B 1
+One or more files failed, the source was not found, or ffmpeg is missing.
+.TP
+.B 2
+Invalid command line.
+.TP
+.B 130
+Interrupted.
+.SH EXAMPLES
+Sixteen evenly spaced frames from one file:
+.PP
+.RS
+vfx movie.mp4
+.RE
+.PP
+One frame every 10 seconds, in all subfolders:
+.PP
+.RS
+vfx \-R \-T 10 ~/Videos
+.RE
+.PP
+Every frame, as PNG:
+.PP
+.RS
+vfx \-N 0 \-F png clip.mov
+.RE
+.PP
+Show what would be processed:
+.PP
+.RS
+vfx \-L \-R .
+.RE
+.SH SEE ALSO
+.BR ffmpeg (1),
+.BR ffprobe (1)
