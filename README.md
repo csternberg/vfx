@@ -9,7 +9,8 @@ Edge, in an iterative process where more and more options were added.
 Version 2.0.0 is a rewrite that fixes several crashes and speeds up
 extraction.
 
-The program is public domain and open source.
+The program is open source, released under the GNU General Public License
+v3 (see `LICENSE`).
 
 ## Requirements
 

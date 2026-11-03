@@ -197,9 +197,8 @@ with `build_parser()`. `vfx.1` is the man page; keep it in sync too
 
 ## Open items / possible future work
 
-- **Licence mismatch:** `LICENSE` is GPL v3, but the README says "public
-  domain". The owner needs to decide which is right; don't change
-  either one on your own.
+The project is licensed under GPL v3 (`LICENSE`); the README says the same.
+
 - `-N` starts one ffmpeg process per frame. With a very large `-N`,
   process start-up dominates. Batching several `-ss … -i` inputs into
   one ffmpeg call (one `-map`/output per input) would help, but opens
