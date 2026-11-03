@@ -1,4 +1,4 @@
-# VIDEO FRAME EXTRACTION TOOL 2.3.0
+# VIDEO FRAME EXTRACTION TOOL 2.4.0
 
 `vfx` is a small Python command-line utility that uses the free utility
 [ffmpeg](https://ffmpeg.org) to extract still images from video files:
@@ -22,13 +22,14 @@ v3 (see `LICENSE`).
 Single-letter switches are case-insensitive (`-n 5` = `-N 5`); long options are lowercase.
 
 ```
-vfx [-R] [-S | -I | --verbose] [-N x | -T x] [-X x] [-Y x] [-F fmt] [-Q x] [-M]
+vfx [-R] [-W mask] [-S | -I | --verbose] [-N x | -T x] [-X x] [-Y x] [-F fmt] [-Q x] [-M]
     [-P] [-D] [-O [xx]] [-L] [-V] [-H] [source_file | source_path]
 ```
 
 | Switch | Meaning |
 |---|---|
 | `-R`, `--recursive` | Recursive: process the directory and all its subdirectories |
+| `-W mask`, `--match mask` | Only process videos whose file name matches the wildcard mask (`*` and `?`, case-insensitive), e.g. `-R -W "*spain*"`. Quote the mask so the shell doesn't expand it. Applies to folder scans, not to a file named as the source; images go where they would without `-W` (`-D` and `-O` work as usual) |
 | `-S`, `--silent` | Silent mode: no text output (except `-P` prompts) |
 | `-I`, `--info` | Info mode (the default): one progress line per video, e.g. `clip.mp4: generated 5 of 16 frames (2 of 7 videos)`, no ffmpeg output |
 | `--verbose` | Show ffmpeg's own output |
@@ -92,6 +93,18 @@ python3 -m unittest -v test_vfx
 
 The tests generate small synthetic clips with ffmpeg. Tests that need
 ffmpeg are skipped if it isn't installed.
+
+## Changes in 2.4.0
+
+- **New:** `-W mask` / `--match mask` processes only videos whose file name
+  matches a wildcard mask, in a folder scan (with `-R` in all subfolders).
+
+## Changes in 2.3.1
+
+- **Changed:** when an `-O` name containing a `.` asks for confirmation and
+  the folder already exists (a file such as `movie.mp4` counts), the question
+  names the folder that will really be used (`movie.mp4_001`). Only `y` or
+  `yes` proceeds; anything else aborts.
 
 ## Changes in 2.3.0
 

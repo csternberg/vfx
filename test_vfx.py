@@ -179,6 +179,39 @@ class CliTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.images(out / "clip_frames"), ["clip_001.jpg"])
 
+    def test_output_name_prompt_shows_final_folder_and_only_y_proceeds(self):
+        video = self.copy("clip.mp4")
+        out = self.dir / "movie.mp4"
+        out.write_bytes(b"in the way")
+        final = self.dir / "movie.mp4_001"
+        result = self.run_vfx("-S", "-N", 1, video, f"--output={out}", stdin="\n")
+        self.assertEqual(result.returncode, 0)
+        self.assertIn(f"proceed with '{final}' as output folder", result.stdout)
+        self.assertFalse(final.exists())
+        result = self.run_vfx("-S", "-N", 1, video, f"--output={out}", stdin="maybe\n")
+        self.assertFalse(final.exists())
+        result = self.run_vfx("-S", "-N", 1, video, f"--output={out}", stdin="y\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.images(final / "clip_frames"), ["clip_001.jpg"])
+        self.assertEqual(out.read_bytes(), b"in the way")
+
+    def test_match_filters_by_name_and_keeps_output_placement(self):
+        self.copy("clip.mp4", "Spain-2026.mp4")
+        self.copy("clip.mp4", "holiday-spain.mp4", subdir="xxx")
+        self.copy("clip.mp4", "france.mp4", subdir="xxx")
+        result = self.run_vfx("-S", "-R", "-N", 1, "-W", "*spain*", self.dir)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.images(self.dir / "Spain-2026_frames"), ["Spain-2026_001.jpg"])
+        self.assertEqual(self.images(self.dir / "xxx" / "holiday-spain_frames"),
+                         ["holiday-spain_001.jpg"])
+        self.assertFalse((self.dir / "xxx" / "france_frames").exists())
+        out = self.dir / "out"
+        result = self.run_vfx("-S", "-R", "-N", 1, "-D", "-W", "*SPAIN*.*", self.dir,
+                              f"--output={out}")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.images(out), ["Spain-2026_001.jpg"])
+        self.assertEqual(self.images(out / "xxx"), ["holiday-spain_001.jpg"])
+
     def test_output_failure_leaves_no_empty_folders(self):
         (self.dir / "sub").mkdir()
         (self.dir / "sub" / "broken.mp4").write_bytes(b"not a video")

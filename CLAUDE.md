@@ -59,14 +59,19 @@ with `build_parser()`. `vfx.1` is the man page; keep it in sync too
   formats), and macOS `._*` files are skipped. Unknown extensions are
   skipped in folder scans on purpose (probing every file with ffprobe
   was rejected as slow). A file named explicitly on the command line is
-  accepted whatever its extension.
+  accepted whatever its extension. `-W mask` filters folder scans by file
+  name (`fnmatch`, case-insensitive) inside `find_videos()`, so output
+  placement (`-D`, `-O`) is unaffected; it is ignored for an explicit file.
+  The program does no wildcard expansion of the source itself.
 - **`-O` output root**: `unique_output_root()` picks `frames`, `frames_001`,
   and so on once per run (in `main()`, after discovery). `output_dir_for()`
   then places each video at `<root>/<path relative to the source dir>/
   <stem>_frames`; with `-D` the images of each source folder share
   `<root>/<relative path>` directly. `confirm_output_name()` asks y/n when
   the last component of the `-O` value contains a `.` (skipped in dry run;
-  EOF counts as no). Its value is optional
+  EOF counts as no; only `y`/`yes` proceeds). It runs after
+  `unique_output_root()` and shows the final folder name when it differs
+  from the typed one. Its value is optional
   (`nargs="?"`), which makes `vfx -o movie.mp4` take the video as the
   folder name; this is documented, not fixed. A failed file removes the
   empty folders it created, up to the root (`remove_empty_parents()`).
@@ -189,7 +194,7 @@ with `build_parser()`. `vfx.1` is the man page; keep it in sync too
   (`--recursive`, `--count`, `--same-dir`, `--dry-run`, and so on); the
   one exception is `--verbose`, which is long-only.
 - **Versioning (the owner wants this kept up to date):** the current
-  version is 2.3.0. Whenever you make a user-visible change, bump
+  version is 2.4.0. Whenever you make a user-visible change, bump
   `__version__` (minor for new features or behaviour changes, patch for
   fixes), the README heading, a new "Changes in x.y.z" README section,
   and the `vfx.1` `.TH` line, all together. Also update the docs

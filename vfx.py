@@ -6,6 +6,7 @@ spaced frames, one frame every x seconds, or every frame.
 """
 
 import argparse
+import fnmatch
 import glob
 import json
 import math
@@ -17,7 +18,7 @@ import sys
 from collections import deque
 from pathlib import Path
 
-__version__ = "2.3.0"
+__version__ = "2.4.0"
 
 VIDEO_EXTENSIONS = {
     ".3g2", ".3gp", ".asf", ".avi", ".avs", ".divx", ".dv", ".f4v", ".flv",
@@ -144,6 +145,12 @@ def build_parser():
              "0 extracts all frames")
 
     parser.add_argument(
+        "-W", "--match", dest="match", metavar="mask",
+        help="Only process videos whose file name matches the wildcard mask "
+             "(e.g. -W \"*spain*\"), ignoring case; the extension must still be "
+             "a video one. Quote it so the shell doesn't expand it. Applies to "
+             "folder scans, not to a file named as the source")
+    parser.add_argument(
         "-X", "--width", dest="width", type=non_negative_int, default=0, metavar="x",
         help="Image width in pixels; without -Y the height keeps the aspect ratio")
     parser.add_argument(
@@ -245,20 +252,25 @@ def is_video(path):
     return path.suffix.lower() in VIDEO_EXTENSIONS and not path.name.startswith("._")
 
 
-def find_videos(source, recursive):
+def find_videos(source, recursive, pattern=None):
     """Return a sorted list of video files. The whole list is collected
     before anything is extracted, so output folders created during the run
-    are never walked into."""
+    are never walked into. `pattern` (-W) is a case-insensitive wildcard
+    matched against file names in folder scans."""
     if source.is_file():
         return [source]  # named explicitly: accept whatever the extension
     if not source.is_dir():
         raise VfxError(f"No such file or directory: {source}")
+    wanted = (lambda name: fnmatch.fnmatchcase(name.lower(), pattern.lower())) \
+        if pattern else (lambda name: True)
     if not recursive:
-        return sorted(p for p in source.iterdir() if p.is_file() and is_video(p))
+        return sorted(p for p in source.iterdir()
+                      if p.is_file() and is_video(p) and wanted(p.name))
     videos = []
     for root, dirs, files in os.walk(source):
         dirs.sort()
-        videos.extend(Path(root) / f for f in sorted(files) if is_video(Path(f)))
+        videos.extend(Path(root) / f for f in sorted(files)
+                      if is_video(Path(f)) and wanted(f))
     return videos
 
 
@@ -580,17 +592,23 @@ def dry_run(video, args):
           f"{out_dir / f'{prefix}_*.{args.fmt}'}")
 
 
-def confirm_output_name(name):
+def confirm_output_name(name, root):
     """-O values with a '.' in the last path component (movie.mp4, ., ..) are
-    probably a mistake, e.g. `-o movie.mp4` swallowing the source."""
+    probably a mistake, e.g. `-o movie.mp4` swallowing the source. `root` is
+    the folder that will actually be used (see unique_output_root)."""
     if "." not in Path(name).name and Path(name).name:
         return True
+    if root == Path(name):
+        question = (f"You selected '{name}' as output folder, "
+                    "do you want to proceed with this? (y/n) ")
+    else:
+        question = (f"You selected '{name}' as output folder. "
+                    f"Do you want to proceed with '{root}' as output folder? (y/n) ")
     try:
-        answer = input(f"You selected '{name}' as output folder, "
-                       "do you want to proceed with this? (y/n) ").strip().lower()
+        answer = input(question).strip().lower()
     except EOFError:
         return False
-    return answer in ("y", "yes")
+    return answer in ("y", "yes")  # anything else aborts
 
 
 def confirm(video):
@@ -625,19 +643,20 @@ def main(argv=None):
             return 1
 
     try:
-        videos = find_videos(Path(args.source), args.recursive)
+        videos = find_videos(Path(args.source), args.recursive, args.match)
     except VfxError as exc:
         print(f"vfx: {exc}", file=sys.stderr)
         return 1
     if not videos:
-        reporter.say(f"No video files found in {args.source}")
+        matching = f" matching '{args.match}'" if args.match else ""
+        reporter.say(f"No video files found{matching} in {args.source}")
         return 0
 
-    if args.output and not args.dry_run and not confirm_output_name(args.output):
+    args.out_root = unique_output_root(args.output) if args.output else None
+    if args.output and not args.dry_run and not confirm_output_name(args.output, args.out_root):
         reporter.say("Process aborted.")
         return 0
     args.source_dir = Path(args.source) if Path(args.source).is_dir() else Path(args.source).parent
-    args.out_root = unique_output_root(args.output) if args.output else None
 
     done = skipped = failed = 0
     for index, video in enumerate(videos, 1):

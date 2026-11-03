@@ -1,9 +1,10 @@
-.TH VFX 1 "" "vfx 2.3.0" "User Commands"
+.TH VFX 1 "" "vfx 2.4.0" "User Commands"
 .SH NAME
 vfx \- extract still images from video files using ffmpeg
 .SH SYNOPSIS
 .B vfx
 [\fB\-R\fR]
+[\fB\-W\fR \fImask\fR]
 [\fB\-S\fR | \fB\-I\fR | \fB\-\-verbose\fR]
 [\fB\-N\fR \fIx\fR | \fB\-T\fR \fIx\fR]
 [\fB\-X\fR \fIx\fR]
@@ -95,6 +96,21 @@ Extract one frame every
 seconds; decimals are allowed (for example 0.5).
 0 extracts all frames.
 .TP
+.BR \-W ", " \-\-match " \fImask\fR"
+Only process videos whose file name matches the wildcard
+.I mask
+(\fB*\fR and \fB?\fR, case-insensitive), for example
+.BR "\-R \-W '*spain*'" .
+Quote the mask so the shell does not expand it.
+It applies to folder scans, not to a file named as
+.IR source .
+Images go where they would without
+.BR \-W ;
+.B \-D
+and
+.B \-O
+work as usual.
+.TP
 .BR \-X ", " \-\-width " \fIx\fR"
 Image width in pixels.
 Without
@@ -158,6 +174,14 @@ contains a dot (for example
 .BR movie.mp4 ),
 vfx asks for confirmation (y/n) before proceeding, since that is usually a
 mistake.
+If that folder name is already taken (a file counts), the question shows the
+name that will be used instead, for example
+.BR movie.mp4_001 .
+Only
+.B y
+or
+.B yes
+proceeds; any other answer aborts.
 Because the value is optional, put the source before
 .BR \-O ,
 or write
