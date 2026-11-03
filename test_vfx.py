@@ -225,6 +225,18 @@ class CliTests(unittest.TestCase):
         self.assertEqual(self.run_vfx("-S", self.dir).returncode, 0)
         self.assertEqual(len(self.images(self.dir / "clip_frames")), 16)
 
+    def test_count_larger_than_one_batch(self):
+        # 37 samples = three chunks (16 + 16 + 5), run in parallel
+        self.copy("clip.mp4")
+        for extra in ([], ["-M"], ["--verbose"]):
+            with self.subTest(extra=extra):
+                shutil.rmtree(self.dir / "clip_frames", ignore_errors=True)
+                result = self.run_vfx("-N", 37, *extra, self.dir)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(len(self.images(self.dir / "clip_frames")), 37)
+        names = self.images(self.dir / "clip_frames")
+        self.assertEqual(len(set(names)), 37)
+
     def test_all_frames(self):
         video = self.copy("clip.mp4")
         for switch in ("-N", "-T"):

@@ -48,7 +48,7 @@ with `build_parser()`. `vfx.1` is the man page; keep it in sync too
   own output goes through `Reporter`: `say` (stdout), `error` (stderr)
   and `progress` (INFO mode only, one line per video redrawn in place
   with `\r`: `name: generated x of y frames (i of n videos)`). Progress
-  comes from `show()` in `process_video()`: `-N` reports per frame, and
+  comes from `show()` in `process_video()`: `-N` reports per finished chunk of frames, and
   stream mode gets ffmpeg's `frame=` lines via `run_ffmpeg(on_frame=…)`.
   The "of y" in stream mode is an estimate; the final line uses the
   actual count.
@@ -79,9 +79,15 @@ with `build_parser()`. `vfx.1` is the man page; keep it in sync too
   returns `(duration, estimated_frames)`. Dry run never probes, and
   needs neither ffmpeg nor ffprobe.
 - **Extraction paths**:
-  - `extract_by_count()` (`-N`) runs one short ffmpeg per frame:
-    `-ss T -i file -frames:v 1 -update 1`, where `-ss` placed before
-    `-i` seeks the input.
+  - `extract_by_count()` (`-N`) seeks to each sample with `-ss T -i file`
+    (`-ss` before `-i` seeks the input) and writes one frame per output
+    (`-map k:V:0 -frames:v 1 -update 1`). Samples go in chunks of
+    `BATCH_SIZE` (16) inputs per ffmpeg process, and up to `MAX_WORKERS`
+    (4) chunks run at once in a thread pool; `--verbose` runs them one at
+    a time so ffmpeg's output isn't interleaved. Progress is reported
+    from the main thread only (`Reporter` isn't thread safe). On a 10-min
+    720p clip this took `-N 100` from 23 s to 5 s; batch sizes 8 to 32
+    are about equal, and more workers were not tried.
   - `extract_stream()` (`-T` and all frames) is a single ffmpeg pass
     over the whole video.
 - **Output naming**:
@@ -163,7 +169,7 @@ with `build_parser()`. `vfx.1` is the man page; keep it in sync too
 
 - `python3 -m py_compile vfx.py test_vfx.py` after every edit: cheap,
   so run it first.
-- `python3 -m unittest -v test_vfx` runs 32 tests, taking about 10 s
+- `python3 -m unittest -v test_vfx` runs 35 tests, taking about 10 s
   with ffmpeg 8.0 on macOS (about 20 s on Windows with ffmpeg 7.1).
   - `HelperTests` are pure unit tests.
   - `CliTests` run the script as a subprocess against synthetic
@@ -194,7 +200,7 @@ with `build_parser()`. `vfx.1` is the man page; keep it in sync too
   (`--recursive`, `--count`, `--same-dir`, `--dry-run`, and so on); the
   one exception is `--verbose`, which is long-only.
 - **Versioning (the owner wants this kept up to date):** the current
-  version is 2.4.0. Whenever you make a user-visible change, bump
+  version is 2.5.0. Whenever you make a user-visible change, bump
   `__version__` (minor for new features or behaviour changes, patch for
   fixes), the README heading, a new "Changes in x.y.z" README section,
   and the `vfx.1` `.TH` line, all together. Also update the docs
@@ -204,10 +210,8 @@ with `build_parser()`. `vfx.1` is the man page; keep it in sync too
 
 The project is licensed under GPL v3 (`LICENSE`); the README says the same.
 
-- `-N` starts one ffmpeg process per frame. With a very large `-N`,
-  process start-up dominates. Batching several `-ss … -i` inputs into
-  one ffmpeg call (one `-map`/output per input) would help, but opens
-  that many decoders at once. Consider chunks of about 16.
+- `-N` workers are capped at 4; `-T`/all-frames mode is a single ffmpeg
+  pass and could be split by time range, but ffmpeg already threads it.
 - If `-N` is larger than the video's frame count, some images are
   duplicates, and with `-M` they could share a millisecond name (ffmpeg
   then fails because of `-n`). There's no warning or cap yet.

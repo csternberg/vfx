@@ -16,9 +16,10 @@ import shutil
 import subprocess
 import sys
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-__version__ = "2.4.0"
+__version__ = "2.5.0"
 
 VIDEO_EXTENSIONS = {
     ".3g2", ".3gp", ".asf", ".avi", ".avs", ".divx", ".dv", ".f4v", ".flv",
@@ -29,6 +30,8 @@ VIDEO_EXTENSIONS = {
 }
 IMAGE_FORMATS = ("jpg", "png", "webp")
 DEFAULT_FRAME_COUNT = 16
+BATCH_SIZE = 16  # -N samples per ffmpeg process
+MAX_WORKERS = min(4, os.cpu_count() or 1)  # ffmpeg processes running at once for -N
 DEFAULT_WEBP_QUALITY = 90
 DEFAULT_OUTPUT_DIR = "frames"
 
@@ -487,21 +490,56 @@ def extract_by_count(video, out_dir, prefix, count, duration, args, show):
                        "(try -T instead)")
     width = counter_width(count)
     video_filter = scale_filter(args.width, args.height)
+    samples = []
     for i in range(count):
         # Centre each sample in its slice of the video: this skips the
         # (often black) very first frame and still covers the ending.
         timestamp = (i + 0.5) * duration / count
         label = format_timestamp(timestamp) if args.timestamps else f"{i + 1:0{width}d}"
-        output = out_dir / f"{prefix}_{label}.{args.fmt}"
-        cmd = ["-ss", f"{timestamp:.3f}", "-i", str(video), "-map", "0:V:0",
-               "-frames:v", "1", "-update", "1"]
-        if video_filter:
-            cmd += ["-vf", video_filter]
-        cmd += encoder_args(args.fmt, args.quality) + [str(output)]
-        show(i, count)
+        samples.append((timestamp, out_dir / f"{prefix}_{label}.{args.fmt}"))
+
+    # One ffmpeg process per chunk of samples: one seeking input and one
+    # single-frame output each. That avoids a process start-up per frame
+    # without opening an unbounded number of decoders at once.
+    def run_chunk(chunk):
+        cmd = []
+        for timestamp, _ in chunk:
+            cmd += ["-ss", f"{timestamp:.3f}", "-i", str(video)]
+        for n, (_, output) in enumerate(chunk):
+            cmd += ["-map", f"{n}:V:0", "-frames:v", "1", "-update", "1"]
+            if video_filter:
+                cmd += ["-vf", video_filter]
+            cmd += encoder_args(args.fmt, args.quality) + [str(output)]
         run_ffmpeg(cmd, args.verbosity)
-        if not output.exists():
-            raise VfxError(f"no frame could be decoded at {timestamp:.3f} s")
+        for timestamp, output in chunk:
+            if not output.exists():
+                raise VfxError(f"no frame could be decoded at {timestamp:.3f} s")
+        return len(chunk)
+
+    chunks = [samples[i:i + BATCH_SIZE] for i in range(0, count, BATCH_SIZE)]
+    workers = min(MAX_WORKERS, len(chunks))
+    show(0, count)
+    if workers < 2 or args.verbosity == VERBOSE:  # verbose output can't be interleaved
+        done = 0
+        for chunk in chunks:
+            done += run_chunk(chunk)
+            show(done, count)
+        return
+
+    # Chunks are independent, so run a few at a time. Progress is reported
+    # from this thread only; after a failure or Ctrl-C the chunks not yet
+    # started are dropped and the running ones finish (a second or two).
+    pool = ThreadPoolExecutor(max_workers=workers)
+    futures = [pool.submit(run_chunk, chunk) for chunk in chunks]
+    try:
+        done = 0
+        for future in as_completed(futures):
+            done += future.result()
+            show(done, count)
+    finally:
+        for future in futures:
+            future.cancel()
+        pool.shutdown(wait=True)
 
 
 def extract_stream(video, out_dir, prefix, interval, duration, frames, args, show):

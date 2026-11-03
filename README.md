@@ -1,4 +1,4 @@
-# VIDEO FRAME EXTRACTION TOOL 2.4.0
+# VIDEO FRAME EXTRACTION TOOL 2.5.0
 
 `vfx` is a small Python command-line utility that uses the free utility
 [ffmpeg](https://ffmpeg.org) to extract still images from video files:
@@ -93,6 +93,15 @@ python3 -m unittest -v test_vfx
 
 The tests generate small synthetic clips with ffmpeg. Tests that need
 ffmpeg are skipped if it isn't installed.
+
+## Changes in 2.5.0
+
+- **Faster:** `-N` (the default mode) now extracts frames in batches of 16
+  per ffmpeg process and runs up to 4 batches in parallel, instead of
+  starting one ffmpeg per frame. On a 10-minute 720p clip, `-N 100` went
+  from 23 s to 5 s and `-N 16` from 4.3 s to 2.0 s, with identical images.
+  The progress line now advances per batch. `--verbose` runs batches one at
+  a time so ffmpeg's output isn't interleaved.
 
 ## Changes in 2.4.0
 
